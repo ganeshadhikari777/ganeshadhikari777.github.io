@@ -1,405 +1,419 @@
-// State management
-let uploadedImages = [];
-let processedCode = [];
-let stream = null;
+// Initialize CodeMirror editor
+let editor;
 
-// DOM Elements
-const imageUpload = document.getElementById('imageUpload');
-const cameraBtn = document.getElementById('cameraBtn');
-const clearBtn = document.getElementById('clearBtn');
-const imagesPreview = document.getElementById('imagesPreview');
-const cameraModal = document.getElementById('cameraModal');
-const video = document.getElementById('video');
-const canvas = document.getElementById('canvas');
-const captureBtn = document.getElementById('captureBtn');
-const closeCameraBtn = document.getElementById('closeCameraBtn');
-const closeModal = document.querySelector('.close');
-const progressSection = document.getElementById('progressSection');
-const progressFill = document.getElementById('progressFill');
-const progressText = document.getElementById('progressText');
-const resultsSection = document.getElementById('resultsSection');
-const codeFiles = document.getElementById('codeFiles');
-const downloadAllBtn = document.getElementById('downloadAllBtn');
-const processMoreBtn = document.getElementById('processMoreBtn');
-
-// Event Listeners
-imageUpload.addEventListener('change', handleImageUpload);
-cameraBtn.addEventListener('click', openCamera);
-clearBtn.addEventListener('click', clearAll);
-captureBtn.addEventListener('click', capturePhoto);
-closeCameraBtn.addEventListener('click', closeCamera);
-closeModal.addEventListener('click', closeCamera);
-downloadAllBtn.addEventListener('click', downloadAllFiles);
-processMoreBtn.addEventListener('click', resetApp);
-
-// Handle image upload
-function handleImageUpload(e) {
-    const files = Array.from(e.target.files);
-    files.forEach(file => {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            addImage(event.target.result, file.name);
-        };
-        reader.readAsDataURL(file);
-    });
-    e.target.value = ''; // Reset input
-}
-
-// Add image to preview
-function addImage(dataUrl, name) {
-    const id = Date.now() + Math.random();
-    uploadedImages.push({ id, dataUrl, name });
-    renderImages();
-    clearBtn.style.display = 'inline-block';
-}
-
-// Render images
-function renderImages() {
-    imagesPreview.innerHTML = '';
-    uploadedImages.forEach((img, index) => {
-        const div = document.createElement('div');
-        div.className = 'image-item';
-        div.innerHTML = `
-            <button class="remove-btn" onclick="removeImage(${img.id})">×</button>
-            <img src="${img.dataUrl}" alt="Code image ${index + 1}">
-            <div class="image-info">
-                <input type="text" placeholder="Filename (optional)"
-                       value="${img.name.replace(/\.[^/.]+$/, '')}"
-                       onchange="updateImageName(${img.id}, this.value)">
-            </div>
-        `;
-        imagesPreview.appendChild(div);
-    });
-
-    // Add process button if images exist
-    if (uploadedImages.length > 0) {
-        const processBtn = document.createElement('button');
-        processBtn.className = 'btn btn-success';
-        processBtn.textContent = '🚀 Process All Images';
-        processBtn.style.margin = '20px auto';
-        processBtn.style.display = 'block';
-        processBtn.onclick = processAllImages;
-        imagesPreview.appendChild(processBtn);
+// Sample Java programs
+const examples = {
+    helloWorld: `public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello, World!");
+        System.out.println("Welcome to the Online Java Compiler!");
     }
-}
+}`,
 
-// Remove image
-function removeImage(id) {
-    uploadedImages = uploadedImages.filter(img => img.id !== id);
-    renderImages();
-    if (uploadedImages.length === 0) {
-        clearBtn.style.display = 'none';
+    variables: `public class Main {
+    public static void main(String[] args) {
+        // Different data types
+        int number = 42;
+        double decimal = 3.14159;
+        char letter = 'A';
+        boolean isJavaFun = true;
+        String text = "Hello, Java!";
+
+        // Print all variables
+        System.out.println("Integer: " + number);
+        System.out.println("Double: " + decimal);
+        System.out.println("Character: " + letter);
+        System.out.println("Boolean: " + isJavaFun);
+        System.out.println("String: " + text);
     }
-}
+}`,
 
-// Update image name
-function updateImageName(id, name) {
-    const img = uploadedImages.find(i => i.id === id);
-    if (img) img.name = name;
-}
+    loops: `public class Main {
+    public static void main(String[] args) {
+        // For loop
+        System.out.println("For loop:");
+        for (int i = 1; i <= 5; i++) {
+            System.out.println("Count: " + i);
+        }
 
-// Clear all
-function clearAll() {
-    uploadedImages = [];
-    renderImages();
-    clearBtn.style.display = 'none';
-}
+        // While loop
+        System.out.println("\\nWhile loop:");
+        int j = 1;
+        while (j <= 5) {
+            System.out.println("Number: " + j);
+            j++;
+        }
 
-// Camera functions
-async function openCamera() {
-    try {
-        stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'environment' }
-        });
-        video.srcObject = stream;
-        cameraModal.style.display = 'flex';
-    } catch (err) {
-        alert('Unable to access camera: ' + err.message);
-    }
-}
-
-function closeCamera() {
-    if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        stream = null;
-    }
-    cameraModal.style.display = 'none';
-}
-
-function capturePhoto() {
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d').drawImage(video, 0, 0);
-    const dataUrl = canvas.toDataURL('image/png');
-    addImage(dataUrl, `captured_${Date.now()}.png`);
-    closeCamera();
-}
-
-// OCR Processing
-async function processAllImages() {
-    progressSection.style.display = 'block';
-    imagesPreview.style.display = 'none';
-    processedCode = [];
-
-    for (let i = 0; i < uploadedImages.length; i++) {
-        const img = uploadedImages[i];
-        const progress = ((i + 1) / uploadedImages.length) * 100;
-
-        progressFill.style.width = `${progress}%`;
-        progressText.textContent = `Processing image ${i + 1} of ${uploadedImages.length}...`;
-
-        try {
-            const text = await performOCR(img.dataUrl);
-            const correctedCode = correctOCRErrors(text);
-            const language = detectLanguage(correctedCode);
-            const filename = img.name || `code_${i + 1}`;
-
-            processedCode.push({
-                filename,
-                language,
-                code: correctedCode,
-                originalText: text
-            });
-        } catch (err) {
-            console.error('Error processing image:', err);
-            processedCode.push({
-                filename: img.name || `code_${i + 1}`,
-                language: 'txt',
-                code: '// Error processing this image: ' + err.message,
-                originalText: ''
-            });
+        // Enhanced for loop
+        System.out.println("\\nEnhanced for loop:");
+        int[] numbers = {10, 20, 30, 40, 50};
+        for (int num : numbers) {
+            System.out.println("Value: " + num);
         }
     }
+}`,
 
-    progressSection.style.display = 'none';
-    displayResults();
-}
+    arrays: `public class Main {
+    public static void main(String[] args) {
+        // Array declaration and initialization
+        int[] numbers = {5, 2, 8, 1, 9, 3};
 
-// Perform OCR using Tesseract.js
-async function performOCR(imageData) {
-    const { data: { text } } = await Tesseract.recognize(
-        imageData,
-        'eng',
-        {
-            logger: m => {
-                if (m.status === 'recognizing text') {
-                    const percent = Math.round(m.progress * 100);
-                    progressText.textContent = `OCR Processing: ${percent}%`;
-                }
+        System.out.println("Original array:");
+        printArray(numbers);
+
+        // Find maximum
+        int max = findMax(numbers);
+        System.out.println("\\nMaximum value: " + max);
+
+        // Calculate sum
+        int sum = calculateSum(numbers);
+        System.out.println("Sum of elements: " + sum);
+
+        // Calculate average
+        double average = (double) sum / numbers.length;
+        System.out.println("Average: " + average);
+    }
+
+    static void printArray(int[] arr) {
+        for (int num : arr) {
+            System.out.print(num + " ");
+        }
+        System.out.println();
+    }
+
+    static int findMax(int[] arr) {
+        int max = arr[0];
+        for (int num : arr) {
+            if (num > max) {
+                max = num;
             }
         }
-    );
-    return text;
-}
-
-// Correct common OCR errors in code
-function correctOCRErrors(text) {
-    let corrected = text;
-
-    // Common OCR mistakes in code
-    const corrections = [
-        // Operators and symbols
-        [/\s*=\s*=\s*/g, ' == '],
-        [/\s*!\s*=\s*/g, ' != '],
-        [/\s*<\s*=\s*/g, ' <= '],
-        [/\s*>\s*=\s*/g, ' >= '],
-        [/\s*\+\s*\+\s*/g, '++'],
-        [/\s*-\s*-\s*/g, '--'],
-        [/\s*\+\s*=/g, ' += '],
-        [/\s*-\s*=/g, ' -= '],
-
-        // Common character confusions
-        [/(?<=[a-z])O(?=[a-z])/g, '0'], // O to 0 in variable names
-        [/(?<=[a-z])l(?=\s*[=;,)\]])/g, '1'], // l to 1 at end of variables
-        [/\bO(?=\s*[;,)\]])/g, '0'], // O to 0 in numbers
-        [/(?<=\d)O(?=\d)/g, '0'], // O to 0 between digits
-        [/(?<=\d)l(?=\d)/g, '1'], // l to 1 between digits
-
-        // Brackets and parentheses
-        [/\[\s+/g, '['],
-        [/\s+\]/g, ']'],
-        [/\(\s+/g, '('],
-        [/\s+\)/g, ')'],
-        [/\{\s+/g, '{ '],
-        [/\s+\}/g, ' }'],
-
-        // Keywords (common mistakes)
-        [/\bdef\s+init\s+/g, 'def __init__ '],
-        [/\b1f\b/g, 'if'],
-        [/\bels\s+e\b/g, 'else'],
-        [/\bretum\b/g, 'return'],
-        [/\bprlnt\b/g, 'print'],
-        [/\bfunctlon\b/g, 'function'],
-        [/\bvold\b/g, 'void'],
-        [/\blnt\b/g, 'int'],
-        [/\bstr1ng\b/g, 'string'],
-        [/\bStrlng\b/g, 'String'],
-        [/\bTnteger\b/g, 'Integer'],
-        [/\bpubl1c\b/g, 'public'],
-        [/\bprlvate\b/g, 'private'],
-        [/\bstat1c\b/g, 'static'],
-        [/\bconst\s+/g, 'const '],
-        [/\blet\s+/g, 'let '],
-        [/\bvar\s+/g, 'var '],
-
-        // Indentation cleanup
-        [/^[ \t]+$/gm, ''], // Remove whitespace-only lines
-        [/\n{3,}/g, '\n\n'], // Max 2 consecutive newlines
-    ];
-
-    corrections.forEach(([pattern, replacement]) => {
-        corrected = corrected.replace(pattern, replacement);
-    });
-
-    // Remove common OCR noise
-    corrected = corrected.split('\n')
-        .filter(line => line.trim().length > 0 || line === '') // Keep meaningful lines
-        .join('\n');
-
-    return corrected.trim();
-}
-
-// Detect programming language
-function detectLanguage(code) {
-    const lower = code.toLowerCase();
-
-    if (lower.includes('def ') || lower.includes('import ') || lower.includes('print(')) {
-        return 'py';
-    } else if (lower.includes('function ') || lower.includes('const ') || lower.includes('let ') ||
-               lower.includes('=>') || lower.includes('console.log')) {
-        return 'js';
-    } else if (lower.includes('public class ') || lower.includes('private ') ||
-               lower.includes('void ') || lower.includes('system.out')) {
-        return 'java';
-    } else if (lower.includes('#include') || lower.includes('cout') || lower.includes('cin')) {
-        return 'cpp';
-    } else if (lower.includes('<?php') || lower.includes('echo ')) {
-        return 'php';
-    } else if (lower.includes('<html') || lower.includes('<div') || lower.includes('<body')) {
-        return 'html';
-    } else if (lower.includes('margin:') || lower.includes('padding:') || lower.includes('display:')) {
-        return 'css';
-    } else if (lower.includes('package ') && lower.includes('func ')) {
-        return 'go';
-    } else if (lower.includes('fn ') || lower.includes('let mut ')) {
-        return 'rs';
-    } else if (lower.includes('using ') || lower.includes('namespace ')) {
-        return 'cs';
+        return max;
     }
 
-    return 'txt';
+    static int calculateSum(int[] arr) {
+        int sum = 0;
+        for (int num : arr) {
+            sum += num;
+        }
+        return sum;
+    }
+}`,
+
+    classes: `public class Main {
+    public static void main(String[] args) {
+        // Create objects
+        Dog myDog = new Dog("Buddy", 3);
+        Dog yourDog = new Dog("Max", 5);
+
+        // Call methods
+        myDog.bark();
+        yourDog.bark();
+
+        myDog.displayInfo();
+        yourDog.displayInfo();
+    }
 }
 
-// Display results
-function displayResults() {
-    resultsSection.style.display = 'block';
-    codeFiles.innerHTML = '';
+class Dog {
+    String name;
+    int age;
 
-    processedCode.forEach((file, index) => {
-        const div = document.createElement('div');
-        div.className = 'code-file';
+    // Constructor
+    Dog(String name, int age) {
+        this.name = name;
+        this.age = age;
+    }
 
-        const extension = file.filename.includes('.') ?
-            file.filename.split('.').pop() : file.language;
+    // Method
+    void bark() {
+        System.out.println(name + " says: Woof! Woof!");
+    }
 
-        div.innerHTML = `
-            <div class="code-file-header">
-                <input type="text" value="${file.filename}"
-                       onchange="updateCodeFilename(${index}, this.value)"
-                       placeholder="filename">
-                <select onchange="updateCodeLanguage(${index}, this.value)">
-                    ${getLanguageOptions(file.language)}
-                </select>
-                <button onclick="downloadSingleFile(${index})">💾 Download</button>
-            </div>
-            <div class="code-file-content">
-                <textarea onchange="updateCodeContent(${index}, this.value)">${file.code}</textarea>
-            </div>
-        `;
+    void displayInfo() {
+        System.out.println("Dog name: " + name + ", Age: " + age + " years");
+    }
+}`,
 
-        codeFiles.appendChild(div);
+    inheritance: `public class Main {
+    public static void main(String[] args) {
+        Circle circle = new Circle("Red", 5.0);
+        Rectangle rectangle = new Rectangle("Blue", 4.0, 6.0);
+
+        circle.display();
+        System.out.println("Area: " + circle.getArea());
+        System.out.println();
+
+        rectangle.display();
+        System.out.println("Area: " + rectangle.getArea());
+    }
+}
+
+// Parent class
+class Shape {
+    String color;
+
+    Shape(String color) {
+        this.color = color;
+    }
+
+    void display() {
+        System.out.println("Color: " + color);
+    }
+}
+
+// Child class - Circle
+class Circle extends Shape {
+    double radius;
+
+    Circle(String color, double radius) {
+        super(color);
+        this.radius = radius;
+    }
+
+    double getArea() {
+        return Math.PI * radius * radius;
+    }
+}
+
+// Child class - Rectangle
+class Rectangle extends Shape {
+    double width;
+    double height;
+
+    Rectangle(String color, double width, double height) {
+        super(color);
+        this.width = width;
+        this.height = height;
+    }
+
+    double getArea() {
+        return width * height;
+    }
+}`,
+
+    calculator: `import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+
+        System.out.println("=== Simple Calculator ===");
+        System.out.print("Enter first number: ");
+        double num1 = 10.0;  // Simulated input
+
+        System.out.print("Enter second number: ");
+        double num2 = 5.0;   // Simulated input
+
+        System.out.println("\\nResults:");
+        System.out.println("Addition: " + num1 + " + " + num2 + " = " + add(num1, num2));
+        System.out.println("Subtraction: " + num1 + " - " + num2 + " = " + subtract(num1, num2));
+        System.out.println("Multiplication: " + num1 + " * " + num2 + " = " + multiply(num1, num2));
+        System.out.println("Division: " + num1 + " / " + num2 + " = " + divide(num1, num2));
+    }
+
+    static double add(double a, double b) {
+        return a + b;
+    }
+
+    static double subtract(double a, double b) {
+        return a - b;
+    }
+
+    static double multiply(double a, double b) {
+        return a * b;
+    }
+
+    static double divide(double a, double b) {
+        if (b != 0) {
+            return a / b;
+        } else {
+            System.out.println("Error: Division by zero!");
+            return 0;
+        }
+    }
+}`,
+
+    fibonacci: `public class Main {
+    public static void main(String[] args) {
+        int n = 10;
+
+        System.out.println("First " + n + " Fibonacci numbers:");
+
+        // Method 1: Iterative
+        System.out.println("\\nIterative approach:");
+        printFibonacciIterative(n);
+
+        // Method 2: Recursive
+        System.out.println("\\n\\nRecursive approach:");
+        for (int i = 0; i < n; i++) {
+            System.out.print(fibonacciRecursive(i) + " ");
+        }
+        System.out.println();
+    }
+
+    // Iterative method
+    static void printFibonacciIterative(int n) {
+        int first = 0, second = 1;
+
+        for (int i = 0; i < n; i++) {
+            System.out.print(first + " ");
+            int next = first + second;
+            first = second;
+            second = next;
+        }
+    }
+
+    // Recursive method
+    static int fibonacciRecursive(int n) {
+        if (n <= 1) {
+            return n;
+        }
+        return fibonacciRecursive(n - 1) + fibonacciRecursive(n - 2);
+    }
+}`
+};
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    initializeEditor();
+    setupEventListeners();
+});
+
+// Initialize CodeMirror editor
+function initializeEditor() {
+    const editorElement = document.getElementById('editor');
+
+    editor = CodeMirror(editorElement, {
+        value: examples.helloWorld,
+        mode: 'text/x-java',
+        theme: 'monokai',
+        lineNumbers: true,
+        autoCloseBrackets: true,
+        matchBrackets: true,
+        indentUnit: 4,
+        indentWithTabs: false,
+        lineWrapping: true,
+        extraKeys: {
+            'Ctrl-Enter': function() {
+                runCode();
+            },
+            'Cmd-Enter': function() {
+                runCode();
+            }
+        }
     });
 }
 
-// Get language options for select
-function getLanguageOptions(selected) {
-    const languages = {
-        'js': 'JavaScript (.js)',
-        'py': 'Python (.py)',
-        'java': 'Java (.java)',
-        'cpp': 'C++ (.cpp)',
-        'c': 'C (.c)',
-        'html': 'HTML (.html)',
-        'css': 'CSS (.css)',
-        'php': 'PHP (.php)',
-        'go': 'Go (.go)',
-        'rs': 'Rust (.rs)',
-        'cs': 'C# (.cs)',
-        'rb': 'Ruby (.rb)',
-        'swift': 'Swift (.swift)',
-        'kt': 'Kotlin (.kt)',
-        'ts': 'TypeScript (.ts)',
-        'txt': 'Text (.txt)'
-    };
-
-    return Object.entries(languages).map(([ext, name]) =>
-        `<option value="${ext}" ${ext === selected ? 'selected' : ''}>${name}</option>`
-    ).join('');
+// Setup event listeners
+function setupEventListeners() {
+    document.getElementById('runBtn').addEventListener('click', runCode);
+    document.getElementById('clearBtn').addEventListener('click', clearEditor);
+    document.getElementById('clearOutputBtn').addEventListener('click', clearOutput);
+    document.getElementById('exampleSelector').addEventListener('change', loadExample);
 }
 
-// Update functions
-function updateCodeFilename(index, name) {
-    processedCode[index].filename = name;
+// Load example code
+function loadExample(e) {
+    const exampleKey = e.target.value;
+    if (exampleKey && examples[exampleKey]) {
+        editor.setValue(examples[exampleKey]);
+    }
 }
 
-function updateCodeLanguage(index, lang) {
-    processedCode[index].language = lang;
+// Clear editor
+function clearEditor() {
+    if (confirm('Are you sure you want to clear the editor?')) {
+        editor.setValue('');
+    }
 }
 
-function updateCodeContent(index, content) {
-    processedCode[index].code = content;
+// Clear output console
+function clearOutput() {
+    const outputElement = document.getElementById('output');
+    outputElement.innerHTML = '<div class="output-placeholder">Output cleared. Run your code to see results.</div>';
 }
 
-// Download single file
-function downloadSingleFile(index) {
-    const file = processedCode[index];
-    const filename = file.filename.includes('.') ?
-        file.filename : `${file.filename}.${file.language}`;
+// Run Java code
+async function runCode() {
+    const code = editor.getValue().trim();
 
-    const blob = new Blob([file.code], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
+    if (!code) {
+        showOutput('Please write some code first!', 'error');
+        return;
+    }
+
+    const outputElement = document.getElementById('output');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+
+    // Show loading state
+    outputElement.innerHTML = '';
+    loadingIndicator.style.display = 'flex';
+
+    try {
+        // Use Piston API (free, no auth required)
+        const response = await fetch('https://emkc.org/api/v2/piston/execute', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                language: 'java',
+                version: '*',
+                files: [{
+                    name: 'Main.java',
+                    content: code
+                }]
+            })
+        });
+
+        const result = await response.json();
+
+        loadingIndicator.style.display = 'none';
+
+        if (result.run) {
+            if (result.run.output) {
+                showOutput(result.run.output, 'success');
+            } else if (result.run.stderr) {
+                showOutput(result.run.stderr, 'error');
+            } else {
+                showOutput('Code executed successfully with no output.', 'info');
+            }
+        } else if (result.compile && result.compile.output) {
+            showOutput('Compilation Error:\n' + result.compile.output, 'error');
+        } else {
+            showOutput('An error occurred while executing the code.', 'error');
+        }
+
+    } catch (error) {
+        loadingIndicator.style.display = 'none';
+        showOutput('Error: Unable to connect to the compiler service.\n' + error.message, 'error');
+        console.error('Execution error:', error);
+    }
 }
 
-// Download all files as zip
-async function downloadAllFiles() {
-    const zip = new JSZip();
+// Display output
+function showOutput(text, type = 'success') {
+    const outputElement = document.getElementById('output');
+    outputElement.innerHTML = '';
 
-    processedCode.forEach(file => {
-        const filename = file.filename.includes('.') ?
-            file.filename : `${file.filename}.${file.language}`;
-        zip.file(filename, file.code);
-    });
+    const outputDiv = document.createElement('div');
+    outputDiv.className = `output-${type} output-line`;
+    outputDiv.textContent = text;
 
-    const content = await zip.generateAsync({ type: 'blob' });
-    const url = URL.createObjectURL(content);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'code_files.zip';
-    a.click();
-    URL.revokeObjectURL(url);
+    outputElement.appendChild(outputDiv);
+
+    // Add execution info
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'output-info';
+    infoDiv.style.marginTop = '20px';
+    infoDiv.style.paddingTop = '20px';
+    infoDiv.style.borderTop = '1px solid #444';
+    infoDiv.textContent = `\n[Executed at ${new Date().toLocaleTimeString()}]`;
+    outputElement.appendChild(infoDiv);
 }
 
-// Reset app
-function resetApp() {
-    uploadedImages = [];
-    processedCode = [];
-    imagesPreview.style.display = 'grid';
-    resultsSection.style.display = 'none';
-    clearBtn.style.display = 'none';
-    renderImages();
-}
+// Welcome message
+console.log('%c☕ Online Java Compiler', 'font-size: 24px; color: #2a5298; font-weight: bold;');
+console.log('%cWrite and execute Java code directly in your browser!', 'font-size: 14px; color: #666;');
+console.log('%cKeyboard shortcut: Ctrl+Enter or Cmd+Enter to run code', 'font-size: 12px; color: #999;');

@@ -3,66 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Code OCR - Scan & Digitize Code</title>
-    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <title>Online Java Compiler - Run Java Code in Browser</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
     <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/clike/clike.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/closebrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/matchbrackets.min.js"></script>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>📸 Code OCR</h1>
-            <p class="subtitle">Scan code images and convert them to digital files</p>
+            <div class="header-content">
+                <h1>☕ Online Java Compiler</h1>
+                <p class="subtitle">Write, compile, and run Java code in your browser</p>
+            </div>
+            <div class="header-actions">
+                <select id="exampleSelector" class="example-select">
+                    <option value="">Select an example...</option>
+                    <option value="helloWorld">Hello World</option>
+                    <option value="variables">Variables & Data Types</option>
+                    <option value="loops">Loops</option>
+                    <option value="arrays">Arrays</option>
+                    <option value="classes">Classes & Objects</option>
+                    <option value="inheritance">Inheritance</option>
+                    <option value="calculator">Simple Calculator</option>
+                    <option value="fibonacci">Fibonacci Sequence</option>
+                </select>
+            </div>
         </header>
 
-        <div class="upload-section">
-            <div class="button-group">
-                <label for="imageUpload" class="btn btn-primary">
-                    📁 Upload Images
-                    <input type="file" id="imageUpload" accept="image/*" multiple hidden>
-                </label>
-                <button id="cameraBtn" class="btn btn-secondary">
-                    📷 Take Photo
-                </button>
-                <button id="clearBtn" class="btn btn-danger" style="display: none;">
-                    🗑️ Clear All
-                </button>
+        <div class="main-content">
+            <div class="editor-section">
+                <div class="section-header">
+                    <h2>Code Editor</h2>
+                    <div class="editor-controls">
+                        <button id="clearBtn" class="btn btn-secondary" title="Clear editor">
+                            Clear
+                        </button>
+                        <button id="runBtn" class="btn btn-primary" title="Run code (Ctrl+Enter)">
+                            ▶ Run Code
+                        </button>
+                    </div>
+                </div>
+                <div id="editor"></div>
+            </div>
+
+            <div class="output-section">
+                <div class="section-header">
+                    <h2>Output Console</h2>
+                    <button id="clearOutputBtn" class="btn btn-secondary">Clear</button>
+                </div>
+                <div id="output" class="output-console">
+                    <div class="output-placeholder">
+                        Click "Run Code" to execute your Java program.<br>
+                        Output will appear here.
+                    </div>
+                </div>
+                <div id="loadingIndicator" class="loading-indicator" style="display: none;">
+                    <div class="spinner"></div>
+                    <span>Compiling and running...</span>
+                </div>
             </div>
         </div>
 
-        <div id="cameraModal" class="modal" style="display: none;">
-            <div class="modal-content">
-                <span class="close">&times;</span>
-                <h2>Take Photo</h2>
-                <video id="video" autoplay playsinline></video>
-                <canvas id="canvas" style="display: none;"></canvas>
-                <button id="captureBtn" class="btn btn-primary">Capture</button>
-                <button id="closeCameraBtn" class="btn btn-secondary">Cancel</button>
-            </div>
+        <div class="info-section">
+            <h3>Features</h3>
+            <ul class="features-list">
+                <li>Write and execute Java code instantly</li>
+                <li>Syntax highlighting with CodeMirror</li>
+                <li>Multiple example programs to learn from</li>
+                <li>Real-time compilation and execution</li>
+                <li>View output and error messages</li>
+            </ul>
         </div>
 
-        <div id="imagesPreview" class="images-grid"></div>
-
-        <div id="progressSection" style="display: none;">
-            <h2>Processing...</h2>
-            <div class="progress-bar">
-                <div id="progressFill" class="progress-fill"></div>
-            </div>
-            <p id="progressText">Preparing...</p>
-        </div>
-
-        <div id="resultsSection" style="display: none;">
-            <h2>Processed Code Files</h2>
-            <div id="codeFiles"></div>
-            <div class="action-buttons">
-                <button id="downloadAllBtn" class="btn btn-success">
-                    💾 Download All Files (.zip)
-                </button>
-                <button id="processMoreBtn" class="btn btn-secondary">
-                    ➕ Process More Images
-                </button>
-            </div>
-        </div>
+        <footer>
+            <p>Powered by JDoodle Compiler API | Built for learning and experimentation</p>
+        </footer>
     </div>
 
     <script src="app.js"></script>
